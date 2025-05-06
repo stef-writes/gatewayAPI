@@ -1,0 +1,19 @@
+{
+  "name": "bird-service",
+  "version": "1.0.0",
+  "description": "Bird service",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": [
+    "express",
+    "bird"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "morgan": "^1.10.0"
+  }
+}
