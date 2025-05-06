@@ -1,8 +1,29 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const basicAuth = require('basic-auth'); // You added this
+const rateLimit = require('express-rate-limit'); 
+const basicAuth = require('basic-auth'); 
+const NodeCache = require( "node-cache" );
+const myCache = new NodeCache();
 const app = express();
 const port = 3002;
+
+//==========================================\\
+//==========================================\\
+
+// Rate Limiter Config
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests
+  standardHeaders: true, // Return rate limit info 
+  legacyHeaders: false, 
+  message: { // Custom response body
+            status: 429,
+            message: "Too many requests, please try again later."
+        },
+});
+
+// Apply the rate limiter to all requests before any routes
+app.use(limiter);
 
 //==========================================\\
 //==========================================\\
@@ -26,21 +47,48 @@ const authMiddleware = (req, res, next) => {
   
     next();
   };
+
+const apiKeyMiddleware = (req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+
+    if (!apiKey || apiKey !== 'YOUR_API_KEY') { // Replace w a secure key.
+        return res.status(401).json({ message: 'Unauthorized - Invalid API key' });
+    }
+
+    next();
+};
+
 //==========================================\\
 //==========================================\\
 
-// Apply authMiddleware
-app.get('/users/:id', authMiddleware, async (req, res) => { 
+app.get('/users/:id', apiKeyMiddleware, async (req, res) => { 
   const response = await fetch(`http://localhost:3000/users/${req.params.id}`);
   const data = await response.json();
   res.json(data);
 });
 
-app.get('/products/:id', async (req, res) => {
-    const response = await fetch(`http://localhost:3001/products/${req.params.id}`);
+app.get('/products/:id',  async (req, res) => {
+  console.log(`--- Product route /products/${req.params.id} hit ---`);
+  const productId = req.params.id;
+  const cachedData = myCache.get(productId);
+
+  if (cachedData) {
+    console.log(`Serving product ${productId} from cache`);
+    res.json(cachedData);
+    return;
+  }
+
+  try {
+    console.log(`Fetching product ${productId} from service`);
+    const response = await fetch(`http://localhost:3001/products/${productId}`);
     const data = await response.json();
+    myCache.set(productId, data, 60); // Cache for 60 seconds
     res.json(data);
-  });
+  } catch (error) {
+    console.error(`Error in /products/${productId} route:`, error);
+    res.status(500).json({ message: 'Error fetching product data', errorDetails: error.message });
+  }
+});
 
 //==========================================\\
 //==========================================\\
@@ -50,7 +98,7 @@ app.get('/userProducts/:userId', async (req, res) => {
       const userResponse = await fetch(`http://localhost:3000/users/${req.params.userId}`);
       const userData = await userResponse.json();
   
-      // Mock product association - replace with actual logic in a real application
+      // Mock product association 
       const productIds = userData.products || []; 
       const productPromises = productIds.map(productId => fetch(`http://localhost:3001/products/${productId}`));
       const productResponses = await Promise.all(productPromises);

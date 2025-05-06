@@ -1,0 +1,14 @@
+# Ignore Node.js modules folder
+node_modules/
+
+# Optional: Ignore .env files if you plan to use them for environment variables
+# .env
+
+# Optional: Ignore log files
+# *.log
+# logs/
+
+# Optional: Ignore IDE/editor specific files
+# .idea/
+# .vscode/
+# *.swp 
